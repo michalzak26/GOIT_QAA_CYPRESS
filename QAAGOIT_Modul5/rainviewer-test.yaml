@@ -1,0 +1,35 @@
+config:
+  target: 'https://api.rainviewer.com'
+  phases:
+    - duration: 60        # Test przez 60 sekund
+      arrivalRate: 5      # 5 użytkowników na sekundę
+
+  payload:
+    # Dane z pliku CSV użyte do żądań POST
+    path: './data.csv'     # Zmiana na plik CSV
+    fields:
+      - latitude
+      - longitude
+
+scenarios:
+  - flow:
+      - get:
+          url: "/public/weather-maps.json"
+          capture:
+            - json: '$.radar.past[0].path'   # Przykładowy JSONPath do zapisania wartości
+              as: radar_image
+
+      - post:
+          url: "/public/data"
+          json:
+            lat: "{{ latitude }}"              # Wartości dynamicznie pobierane z payload
+            lon: "{{ longitude }}"
+            timestamp: "{{ $timestamp }}"      # Wstawienie dynamicznego znacznika czasu
+
+      - get:
+          url: "/public/weather-maps.json"
+
+ensure:
+    - condition: "p95(response_time) < 500"  # Walidacja: czas odpowiedzi poniżej 500ms
+    - condition: "max(response_time) < 1000" # Walidacja: maksymalny czas poniżej 1 sekundy
+    - condition: "http.responses.2xx > 95%"  # Większość odpowiedzi musi być poprawna (kod 2xx)
